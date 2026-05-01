@@ -1,0 +1,175 @@
+name: Rust CI
+
+on:
+    push:
+        branches: [ "master" ]
+        paths:
+            - '**.rs'
+            - 'Cargo.toml'
+            - 'Cargo.lock'
+    pull_request:
+        branches: [ "master" ]
+        paths:
+            - '**.rs'
+            - 'Cargo.toml'
+            - 'Cargo.lock'
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    license-check:
+        name: License Check
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+        - uses: actions/checkout@v6
+
+        - name: Install cargo-deny
+          uses: taiki-e/install-action@v2
+          with:
+            tool: cargo-deny
+        
+        - name: cargo deny check
+          run: cargo deny check --hide-inclusion-graph
+    security-check:
+        name: Security Check
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+        - uses: actions/checkout@v6
+
+        - name: Install cargo-audit
+          uses: taiki-e/install-action@v2
+          with:
+            tool: cargo-audit
+
+        - name: cargo audit check
+          run: cargo audit --deny warnings
+    lint:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v6
+            
+            - name: Install Rust toolchain (stable)
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                components: rustfmt, clippy
+            
+            - name: Cache cargo registry and build artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                shared-key: workspace
+                cache-on-failure: true
+            
+            - name: Check formatting
+              run: cargo fmt --all -- --check
+            
+            - name: Check for clippy warnings
+              run: cargo clippy --all-targets --all-features -- -D warnings
+    test:
+        name: Test Suite
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, windows-latest, macos-latest]
+                rust: [stable, beta, nightly]
+            fail-fast: false
+        timeout-minutes: 10
+        needs: [lint, license-check, security-check]
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install Rust toolchain (stable)
+              uses: dtolnay/rust-toolchain@master
+              with:
+                toolchain: ${{ matrix.rust }}
+            
+            - name: Cache cargo registry and build artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                key: ${{ matrix.os }}-${{ matrix.rust }}
+                cache-on-failure: true
+            
+            - name: Build
+              run: cargo build --verbose
+            
+            - name: Run tests
+              run: cargo test --all-features --all --verbose
+    msrv:
+        runs-on: ubuntu-latest
+        needs: [lint, license-check, security-check]
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install cargo-hack
+              uses: taiki-e/install-action@v2
+              with:
+                tool: cargo-hack
+            - run: cargo hack check --rust-version --workspace --all-targets
+    code-analysis:
+        name: Code Analysis (rust-code-analysis)
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        needs: [lint, license-check, security-check]
+        env:
+            RCA_VERSION: v0.0.25
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install rust-code-analysis-cli
+              run: |
+                set -euo pipefail
+                curl -fsSL "https://github.com/mozilla/rust-code-analysis/releases/download/${RCA_VERSION}/rust-code-analysis-linux-cli-x86_64.tar.gz" \
+                  -o rca.tar.gz
+                mkdir -p "$HOME/.local/bin"
+                tar -xzf rca.tar.gz -C "$HOME/.local/bin"
+                rm rca.tar.gz
+                echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+            - name: Run rust-code-analysis
+              run: |
+                set -euo pipefail
+                mkdir -p metrics-output
+                rust-code-analysis-cli \
+                  --metrics \
+                  --output-format json \
+                  --pr \
+                  -X 'target/**' \
+                  -p sim-core sim-main \
+                  -o metrics-output
+
+            - name: Upload metrics report
+              uses: actions/upload-artifact@v7
+              with:
+                name: rust-code-analysis-metrics
+                path: metrics-output
+    release:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        needs: test
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install Rust toolchain (stable)
+              uses: dtolnay/rust-toolchain@stable
+            
+            - name: Cache cargo registry and build artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                shared-key: workspace
+                cache-on-failure: true
+            
+            - name: Build release artifacts
+              run: cargo build --release --verbose
+            
+            - name: Create release archive
+              run: tar -czvf release.tar.gz target/release/
+            
+            - name: Upload release artifact
+              uses: actions/upload-artifact@v7
+              with:
+                name: release-artifact
+                path: release.tar.gz

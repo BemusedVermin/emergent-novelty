@@ -1,6 +1,7 @@
 docs/drafts
 docs/notes
 /.claude/*.local.*
+/metrics-output
 
 # Added by cargo
 

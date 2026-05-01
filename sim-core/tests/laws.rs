@@ -194,8 +194,7 @@ fn doubling_substrate_violates_total_mass_conservation() {
     let topo = NoNeighbors;
     let pop: Population<Reals> = Population::from_members(vec![1.0, 2.0, 3.0]);
     let mut rng = DummyRng;
-    let result =
-        laws::substrate::total_mass_conservation_under_phi(&s, &mf, &topo, &pop, &mut rng);
+    let result = laws::substrate::total_mass_conservation_under_phi(&s, &mf, &topo, &pop, &mut rng);
     let v = result.expect_err("expected a population-level violation");
     assert_eq!(v.law, "substrate::total_mass_conservation_under_phi");
 }

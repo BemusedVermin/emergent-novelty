@@ -135,9 +135,9 @@ where
         }
 
         // V : variation
-        for i in 0..next.len() {
-            let perturbed = self.variation.perturb(&next[i], archive, rng);
-            next[i] = perturbed;
+        for point in &mut next {
+            let perturbed = self.variation.perturb(point, archive, rng);
+            *point = perturbed;
         }
 
         // 𝒮_F : selection (cull-only)
