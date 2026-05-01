@@ -40,6 +40,7 @@
 //! module — see there for the measure-theoretic foundations.
 
 pub mod closure;
+pub mod laws;
 pub mod measure;
 pub mod niche;
 pub mod observer;

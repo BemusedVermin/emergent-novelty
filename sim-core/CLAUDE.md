@@ -50,6 +50,12 @@ cargo fmt                # format
 
 The `tests/smoke.rs` integration test wires one trivial impl per slot into `SimulatorInstance::step` and asserts the trait bounds compose. Keep it green — it is the canary for any change that touches a slot trait signature.
 
+## Public test harness for downstream impls
+
+`sim_core::laws` exposes pure-functional checkers for the math doc's laws — closure idempotence (§5.2), the Dirac lift's collapse to its underlying map (§1), kernel-density non-negativity, one-step mass conservation (§3.1), and 𝒮_F's cull-only invariant (§2). Each helper takes a slot impl plus a sample input and returns `Result<(), LawViolation>`; downstream crates can drive them with proptest, quickcheck, or hand-rolled samples — the harness has no test-framework dep of its own. When you add a new slot trait or a new documented law, add a matching `laws::*` helper in the same change so the property is checkable from outside the crate.
+
+The companion `sim_core::quantities` module exposes `NonNeg` and `Probability` — the two pointwise constraints that are cheap to check at construction. New scalar fields whose math-doc range is `ℝ_+` or `[0, 1]` should reach for these rather than reintroducing bare `f64`.
+
 ## Conventions
 
 - **Edition 2024.** Single external dep: `rand_core = "0.10"`. Resist adding deps; the scaffold's value is in being substrate-agnostic and unopinionated.
