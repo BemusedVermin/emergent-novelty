@@ -204,7 +204,9 @@ pub mod substrate {
     //! Laws for [`Substrate`] and [`MassFunctional`].
 
     use super::{LawResult, LawViolation, Point};
+    use crate::population::Population;
     use crate::substrate::{MassFunctional, Substrate};
+    use crate::topology::Topology;
     use rand_core::Rng;
 
     /// One-step mass conservation: `m(Φ(x; N)) == m(x)`. §3.1.
@@ -237,6 +239,52 @@ pub mod substrate {
                 detail: format!(
                     "m(x) = {m_before}, m(Φ(x; N)) = {m_after}; difference {}",
                     m_after - m_before
+                ),
+            })
+        }
+    }
+
+    /// Population-level conservation: `Σᵢ m(Φ(xᵢ; Nᵢ)) == Σᵢ m(xᵢ)`. §3.1.
+    ///
+    /// The aggregate-level form of the conservation law — the one that's
+    /// actually load-bearing for substrates like Flow-Lenia, where mass
+    /// flows between cells but the global integral is preserved.
+    /// Pointwise [`mass_conservation`] would fail there even on a
+    /// correct impl; this helper is the right tool.
+    ///
+    /// Drives Φ across every member of `pop` with the topology-supplied
+    /// neighbour set, then compares totals. `pop` is borrowed
+    /// immutably — no V, no cull, just Φ. Strict equality on `f64`;
+    /// callers whose substrates conserve only up to numerical tolerance
+    /// should wrap with their own slack budget.
+    pub fn total_mass_conservation_under_phi<S, MF, T, R>(
+        s: &S,
+        mf: &MF,
+        topology: &T,
+        pop: &Population<S::Space>,
+        rng: &mut R,
+    ) -> LawResult
+    where
+        S: Substrate,
+        MF: MassFunctional<Space = S::Space>,
+        T: Topology<Space = S::Space>,
+        R: Rng + ?Sized,
+    {
+        let before = pop.total_mass(mf).get();
+        let mut after: f64 = 0.0;
+        for i in 0..pop.len() {
+            let neighbors = topology.neighbors(i, pop);
+            let stepped = s.step(&pop.members[i], &neighbors, rng);
+            after += mf.mass(&stepped).get();
+        }
+        if before == after {
+            Ok(())
+        } else {
+            Err(LawViolation {
+                law: "substrate::total_mass_conservation_under_phi",
+                detail: format!(
+                    "Σ m(x) = {before}, Σ m(Φ(x; N)) = {after}; difference {}",
+                    after - before
                 ),
             })
         }

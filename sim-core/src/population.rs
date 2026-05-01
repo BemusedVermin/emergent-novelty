@@ -7,6 +7,9 @@
 //! the newtype that documents this empirical approximation.
 
 use crate::measure::{MeasurableSpace, Point};
+use crate::quantities::NonNeg;
+use crate::substrate::{MassFunctional, Substrate};
+use rand_core::Rng;
 
 /// A population of N entities, each a `Point` of the substrate's
 /// measurable space S.
@@ -28,6 +31,21 @@ impl<S: MeasurableSpace> Population<S> {
 
     /// Population from a list of members.
     pub fn from_members(members: Vec<Point<S>>) -> Self {
+        Self { members }
+    }
+
+    /// Population of `n` entities, each independently drawn from the
+    /// substrate's initial distribution μ_0.
+    ///
+    /// Convenience constructor for the common opening move "give me N
+    /// fresh entities to start a run with"; equivalent to calling
+    /// [`Substrate::initial`] in a loop.
+    pub fn sampled_from<Sub, R>(substrate: &Sub, n: usize, rng: &mut R) -> Self
+    where
+        Sub: Substrate<Space = S>,
+        R: Rng + ?Sized,
+    {
+        let members = (0..n).map(|_| substrate.initial(rng)).collect();
         Self { members }
     }
 
@@ -60,6 +78,28 @@ impl<S: MeasurableSpace> Population<S> {
     /// Iterate over members with mutable access.
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Point<S>> {
         self.members.iter_mut()
+    }
+
+    /// Total mass `Σᵢ m(xᵢ)` under a [`MassFunctional`].
+    ///
+    /// The population-level aggregate that Flow-Lenia and other
+    /// mass-conserving substrates preserve under Φ; the per-entity
+    /// `m(xᵢ)` is rarely the interesting invariant on its own. Pair with
+    /// [`laws::substrate::total_mass_conservation_under_phi`](crate::laws::substrate::total_mass_conservation_under_phi)
+    /// to check the conservation law in tests.
+    ///
+    /// # Panics
+    ///
+    /// If the sum overflows to ±∞ (only reachable for adversarial mass
+    /// functionals or astronomical N). Per-entity masses are already
+    /// guaranteed finite by the [`NonNeg`] return type of
+    /// [`MassFunctional::mass`].
+    pub fn total_mass<MF>(&self, mf: &MF) -> NonNeg
+    where
+        MF: MassFunctional<Space = S>,
+    {
+        let total: f64 = self.members.iter().map(|x| mf.mass(x).get()).sum();
+        NonNeg::new(total).expect("total mass overflowed to ±∞")
     }
 }
 

@@ -50,6 +50,18 @@ pub trait Topology {
 /// between `Field`, `Point`, `Observation`, and `Deposit`. Niche-
 /// construction-aware viability filters can read the field; observers can
 /// score it.
+///
+/// **Orchestration is user-driven.**
+/// [`SimulatorInstance::step`](crate::SimulatorInstance::step) does *not*
+/// drive stigmergic fields — it only consults [`Topology::neighbors`] (the
+/// direct-coupling `G` half of the math doc's `T = (G, K)`). The kernel
+/// `K` half is exposed as this trait, but the [`read`](Self::read) /
+/// [`write`](Self::write) / [`decay`](Self::decay) calls are the
+/// downstream runner's responsibility: a stigmergic substrate's main loop
+/// calls `read` to gather observations before Φ, `write` to deposit after,
+/// and `decay` between rounds. This split keeps `SimulatorInstance` field-
+/// agnostic and avoids committing the scaffold to a particular ordering of
+/// field updates relative to Φ, V, and 𝒮_F.
 pub trait StigmergicField {
     /// The shared environmental field e.
     type Field;

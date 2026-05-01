@@ -168,6 +168,48 @@ fn doubling_substrate_violates_mass_conservation() {
     assert_eq!(v.law, "substrate::mass_conservation");
 }
 
+#[test]
+fn population_total_mass_sums_per_entity() {
+    let mf = AbsMass;
+    let pop: Population<Reals> = Population::from_members(vec![1.0, -2.0, 3.5]);
+    assert_eq!(pop.total_mass(&mf).get(), 6.5);
+}
+
+#[test]
+fn identity_substrate_conserves_total_mass_across_population() {
+    let s = IdentitySubstrate;
+    let mf = AbsMass;
+    let topo = NoNeighbors;
+    let pop: Population<Reals> = Population::from_members(vec![1.0, -2.0, 3.5, 0.0]);
+    let mut rng = DummyRng;
+    assert_law(laws::substrate::total_mass_conservation_under_phi(
+        &s, &mf, &topo, &pop, &mut rng,
+    ));
+}
+
+#[test]
+fn doubling_substrate_violates_total_mass_conservation() {
+    let s = DoubleSubstrate;
+    let mf = AbsMass;
+    let topo = NoNeighbors;
+    let pop: Population<Reals> = Population::from_members(vec![1.0, 2.0, 3.0]);
+    let mut rng = DummyRng;
+    let result =
+        laws::substrate::total_mass_conservation_under_phi(&s, &mf, &topo, &pop, &mut rng);
+    let v = result.expect_err("expected a population-level violation");
+    assert_eq!(v.law, "substrate::total_mass_conservation_under_phi");
+}
+
+#[test]
+fn population_sampled_from_yields_n_members() {
+    let s = IdentitySubstrate;
+    let mut rng = DummyRng;
+    let pop: Population<Reals> = Population::sampled_from(&s, 5, &mut rng);
+    assert_eq!(pop.len(), 5);
+    // IdentitySubstrate::initial returns 0.0 deterministically.
+    assert!(pop.iter().all(|&x| x == 0.0));
+}
+
 // ── Simulator-level laws ──────────────────────────────────────────────────
 
 #[test]
