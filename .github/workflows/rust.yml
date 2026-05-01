@@ -137,7 +137,7 @@ jobs:
                   --output-format json \
                   --pr \
                   -X 'target/**' \
-                  -p sim-core sim-main \
+                  -p sim-core -p sim-main \
                   -o metrics-output
 
             - name: Upload metrics report

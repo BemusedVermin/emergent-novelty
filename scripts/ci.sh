@@ -57,7 +57,7 @@ mkdir -p metrics-output
 step "code-analysis"  rust-code-analysis-cli \
     --metrics --output-format json --pr \
     -X 'target/**' \
-    -p sim-core sim-main \
+    -p sim-core -p sim-main \
     -o metrics-output
 
 step "build" cargo build --verbose
