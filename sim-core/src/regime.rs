@@ -12,6 +12,8 @@
 //! These types are markers only. There is no estimator here; concrete
 //! substrates can carry them as descriptive metadata.
 
+use crate::quantities::Probability;
+
 /// Wolfram's four classes of cellular-automaton long-run behaviour.
 ///
 /// Class I (quiescent), II (periodic), III (chaotic), IV (complex /
@@ -38,6 +40,31 @@ pub enum WolframClass {
 /// the critical value is empirically λ_c ≈ 0.273; mutual information
 /// between successive states peaks near λ_c.
 ///
-/// Convention: 0.0 ≤ λ ≤ 1.0; not enforced by the type.
+/// The wrapped value is constrained to [0, 1] at construction via
+/// [`Probability`]; λ is a probability, so this is the same type-level
+/// guarantee that [`Probability::new`] enforces elsewhere.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct LangtonLambda(pub f64);
+pub struct LangtonLambda(Probability);
+
+impl LangtonLambda {
+    /// Construct from a raw `f64`. Returns `None` if `lambda` is NaN or
+    /// outside `[0, 1]`.
+    pub fn new(lambda: f64) -> Option<Self> {
+        Probability::new(lambda).map(LangtonLambda)
+    }
+
+    /// Construct from an already-validated [`Probability`].
+    pub const fn from_probability(p: Probability) -> Self {
+        LangtonLambda(p)
+    }
+
+    /// The underlying probability.
+    pub fn probability(self) -> Probability {
+        self.0
+    }
+
+    /// The raw `f64` value.
+    pub fn get(self) -> f64 {
+        self.0.get()
+    }
+}

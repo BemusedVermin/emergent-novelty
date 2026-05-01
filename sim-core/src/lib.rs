@@ -44,6 +44,7 @@ pub mod measure;
 pub mod niche;
 pub mod observer;
 pub mod population;
+pub mod quantities;
 pub mod regime;
 pub mod substrate;
 pub mod topology;
@@ -60,6 +61,7 @@ pub use crate::observer::{
     BehaviorMap, FmEmbeddingObserver, KnnNoveltyObserver, Observer, OmegaResidenceObserver,
 };
 pub use crate::population::Population;
+pub use crate::quantities::{NonNeg, Probability};
 pub use crate::regime::{LangtonLambda, WolframClass};
 pub use crate::substrate::{MassFunctional, Substrate};
 pub use crate::topology::{StigmergicField, Topology};

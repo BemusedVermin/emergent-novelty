@@ -3,6 +3,7 @@
 //! Mirrors §3 of the math doc.
 
 use crate::measure::{MeasurableSpace, Point};
+use crate::quantities::NonNeg;
 use rand_core::Rng;
 
 /// A substrate S = (𝒳, Φ, 𝒩, μ_0). §3.1.
@@ -42,10 +43,14 @@ pub trait Substrate {
 /// substrates with no native mass (Avida tape, LLM prompt) simply do not
 /// implement it.
 ///
-/// The return type is `f64`; non-negativity is a documented expectation,
-/// not a type-level constraint.
+/// The return type is [`NonNeg`], so the `m : 𝒳 → ℝ_+` codomain is checked
+/// at construction (NaN and negatives are rejected by [`NonNeg::new`]).
+/// *Conservation* — the property of `m` that makes it interesting — is a
+/// dynamic law and is checked by the
+/// [`laws::substrate::mass_conservation`](crate::laws::substrate::mass_conservation)
+/// helper rather than the type system.
 pub trait MassFunctional {
     type Space: MeasurableSpace;
 
-    fn mass(&self, x: &Point<Self::Space>) -> f64;
+    fn mass(&self, x: &Point<Self::Space>) -> NonNeg;
 }
