@@ -1,0 +1,7 @@
+docs/drafts
+docs/notes
+/.claude/*.local.*
+
+# Added by cargo
+
+/target
