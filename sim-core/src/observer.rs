@@ -69,6 +69,16 @@ pub struct KnnNoveltyObserver<S: MeasurableSpace> {
 }
 
 impl<S: MeasurableSpace> KnnNoveltyObserver<S> {
+    /// Construct a `k`-nearest-neighbour novelty observer.
+    ///
+    /// Refinement (Flux): `k` must be strictly positive — `k = 0` would
+    /// yield the empty kNN query, which has no defined mean and is
+    /// therefore meaningless as a novelty score. The
+    /// `#[cfg_attr(feature = "flux", flux_rs::sig(...))]` line below
+    /// pushes that requirement into the type checker when the `flux`
+    /// feature is on; downstream callers that pass `0` will be flagged
+    /// by `cargo flux` rather than panicking later.
+    #[cfg_attr(feature = "flux", flux_rs::sig(fn(k: usize{k > 0}) -> Self))]
     pub fn new(k: usize) -> Self {
         Self {
             k,

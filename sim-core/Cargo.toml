@@ -8,5 +8,27 @@ authors.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+# Enable refinement-type checking via Flux. Pulls in `flux-rs` (proc-macro
+# crate that exposes the `#[flux_rs::sig(...)]` attribute) and surfaces
+# every `cfg_attr(feature = "flux", ...)` annotation across the crate.
+#
+# A clean `cargo build` does NOT verify anything — it just compiles the
+# annotations as no-op proc-macro expansions. To actually run the
+# verifier, install Flux per <https://flux-rs.github.io/flux/guide/install.html>
+# and run `cargo flux --features flux` from this crate's directory.
+flux = ["dep:flux-rs"]
+
 [dependencies]
 rand_core = "0.10"
+# Pinned to a specific commit on flux-rs/flux@main (2026-05-03).
+# Flux is not yet on crates.io; pinning by rev keeps the build
+# reproducible and avoids surprise breakage from upstream API churn.
+flux-rs = { git = "https://github.com/flux-rs/flux.git", rev = "0dcdeaa512e7661b7079cdfe3b8885c4d6696f67", optional = true }
+
+# Consulted by the `cargo flux` driver only; ignored by stock cargo.
+# Setting `enabled = true` makes `cargo flux` verify this crate; without
+# Flux installed this section is inert.
+[package.metadata.flux]
+enabled = true

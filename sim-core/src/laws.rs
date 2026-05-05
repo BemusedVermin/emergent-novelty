@@ -125,9 +125,16 @@ pub mod closure {
 
 pub mod measure {
     //! Laws for [`Map`], [`Kernel`], and [`ProbabilityMeasure`].
+    //!
+    //! `K(y|x) ≥ 0` and `μ(y) ≥ 0` used to live here as runtime helpers;
+    //! they've moved into the type system — both
+    //! [`Kernel::density`](crate::measure::Kernel::density) and
+    //! [`ProbabilityMeasure::density`](crate::measure::ProbabilityMeasure::density)
+    //! now return [`Option<NonNeg>`](crate::quantities::NonNeg), so a
+    //! negative or NaN density cannot be constructed at all.
 
     use super::{LawResult, LawViolation, Point};
-    use crate::measure::{Dirac, Kernel, Map, ProbabilityMeasure};
+    use crate::measure::{Dirac, Map};
     use rand_core::Rng;
 
     /// `Dirac(M).sample(x, _) == M.apply(x)`. §1.
@@ -142,6 +149,7 @@ pub mod measure {
         Point<M::Target>: Eq + std::fmt::Debug,
         R: Rng + ?Sized,
     {
+        use crate::measure::Kernel as _;
         let direct = m.apply(x);
         let lifted = Dirac(m.clone()).sample(x, rng);
         if direct == lifted {
@@ -151,47 +159,6 @@ pub mod measure {
                 law: "measure::dirac_consistent",
                 detail: format!("Dirac(M).sample(x) = {lifted:?} but M.apply(x) = {direct:?}"),
             })
-        }
-    }
-
-    /// Kernel density, when reported, is finite and non-negative.
-    ///
-    /// `K(y|x) ≥ 0` is a defining property of a Markov kernel; NaN or a
-    /// negative density is a bug in the impl, not a numerical artefact.
-    /// `density` returning `None` is *not* a violation — many useful
-    /// kernels have no closed-form density and the trait permits that.
-    pub fn kernel_density_non_negative<K>(
-        k: &K,
-        x: &Point<K::Source>,
-        y: &Point<K::Target>,
-    ) -> LawResult
-    where
-        K: Kernel,
-    {
-        match k.density(x, y) {
-            None => Ok(()),
-            Some(d) if d.is_finite() && d >= 0.0 => Ok(()),
-            Some(d) => Err(LawViolation {
-                law: "measure::kernel_density_non_negative",
-                detail: format!("K(y|x) reported as {d}, expected finite ≥ 0"),
-            }),
-        }
-    }
-
-    /// Probability-measure density, when reported, is finite and
-    /// non-negative. Same caveat as
-    /// [`kernel_density_non_negative`]: `None` is not a violation.
-    pub fn measure_density_non_negative<P>(p: &P, y: &Point<P::Space>) -> LawResult
-    where
-        P: ProbabilityMeasure,
-    {
-        match p.density(y) {
-            None => Ok(()),
-            Some(d) if d.is_finite() && d >= 0.0 => Ok(()),
-            Some(d) => Err(LawViolation {
-                law: "measure::measure_density_non_negative",
-                detail: format!("μ(y) reported as {d}, expected finite ≥ 0"),
-            }),
         }
     }
 }

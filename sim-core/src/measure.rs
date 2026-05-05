@@ -10,6 +10,7 @@
 //!
 //! Every `Map` canonically lifts to a `Kernel` via [`Dirac`].
 
+use crate::quantities::NonNeg;
 use rand_core::Rng;
 
 /// A measurable space (X, ℱ).
@@ -39,6 +40,13 @@ pub type Point<S> = <S as MeasurableSpace>::Point;
 /// is optional and defaults to `None`, since many useful measures (implicit
 /// pushforwards through neural nets, stigmergic field reads, …) sample but
 /// have no closed-form density.
+///
+/// The density return type is [`Option<NonNeg>`]: a Radon–Nikodym density
+/// is non-negative and finite at every point where it's defined, and
+/// [`NonNeg`] makes that constraint type-checked at every implementation
+/// site rather than relying on the implementor to "remember." Densities
+/// against Lebesgue *can* exceed 1, so [`Probability`](crate::quantities::Probability)
+/// would be too tight; [`NonNeg`] is the correct codomain.
 pub trait ProbabilityMeasure {
     type Space: MeasurableSpace;
 
@@ -46,7 +54,7 @@ pub trait ProbabilityMeasure {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Point<Self::Space>;
 
     /// Density at y against a reference measure, if expressible.
-    fn density(&self, _y: &Point<Self::Space>) -> Option<f64> {
+    fn density(&self, _y: &Point<Self::Space>) -> Option<NonNeg> {
         None
     }
 }
@@ -88,9 +96,48 @@ pub trait Kernel {
     fn sample<R: Rng + ?Sized>(&self, x: &Point<Self::Source>, rng: &mut R) -> Point<Self::Target>;
 
     /// Density K(y|x) if expressible. Default: `None`.
-    fn density(&self, _x: &Point<Self::Source>, _y: &Point<Self::Target>) -> Option<f64> {
+    ///
+    /// Returns [`Option<NonNeg>`] for the same reason
+    /// [`ProbabilityMeasure::density`] does: `K(y|x) ≥ 0` is a defining
+    /// property of a Markov kernel, and the type system is the cheapest
+    /// place to enforce it.
+    fn density(&self, _x: &Point<Self::Source>, _y: &Point<Self::Target>) -> Option<NonNeg> {
         None
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Concrete finite-dimensional spaces — compile-time dimension tagging
+// ─────────────────────────────────────────────────────────────────────────
+
+/// ℝᴺ — a finite-dimensional real vector space, dimension fixed at the
+/// type level via a const generic.
+///
+/// A degenerate but useful [`MeasurableSpace`] for substrates whose state
+/// is a fixed-dim Euclidean point: an N-cell CA reduced to its mean field,
+/// a bounded-arity gene vector, a Boid's `(position, velocity)` pair, etc.
+/// The dimension `N` is part of the type, so wiring two substrates with
+/// mismatched dimensions is a compile error rather than a runtime
+/// `assert_eq!(x.len(), y.len())`.
+///
+/// ```
+/// use sim_core::measure::{MeasurableSpace, RealVector};
+/// fn takes_3d(_p: &<RealVector<3> as MeasurableSpace>::Point) {}
+/// fn caller() {
+///     let p: [f64; 3] = [0.0, 1.0, 2.0];
+///     takes_3d(&p);
+///     // takes_3d(&[0.0, 1.0]); // compile error: expected [f64; 3], got [f64; 2]
+/// }
+/// ```
+///
+/// Heavier static guarantees (matrix shape, multiplicative dimension
+/// arithmetic, sparse/dense layout) live one layer up in
+/// [`nalgebra`](https://docs.rs/nalgebra) — pull it in at the substrate
+/// layer that needs it. This type intentionally stays dep-free.
+pub struct RealVector<const N: usize>;
+
+impl<const N: usize> MeasurableSpace for RealVector<N> {
+    type Point = [f64; N];
 }
 
 /// The Dirac lift δ_f of a deterministic map f : X → Y, exhibiting f as a

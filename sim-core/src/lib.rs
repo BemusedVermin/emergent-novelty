@@ -56,7 +56,7 @@ pub mod viability;
 pub use crate::closure::{
     AutopoieticClosure, ClosureOperator, MarkovBlanketClosure, MinimalCriterionClosure, RafClosure,
 };
-pub use crate::measure::{Dirac, Kernel, Map, MeasurableSpace, Point, ProbabilityMeasure};
+pub use crate::measure::{Dirac, Kernel, Map, MeasurableSpace, Point, ProbabilityMeasure, RealVector};
 pub use crate::niche::NicheConstruction;
 pub use crate::observer::{
     BehaviorMap, FmEmbeddingObserver, KnnNoveltyObserver, Observer, OmegaResidenceObserver,

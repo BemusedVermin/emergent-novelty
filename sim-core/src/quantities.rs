@@ -12,10 +12,14 @@
 //! silently, and a stray NaN mass or NaN probability will eat through any
 //! downstream comparison or summation without complaint.
 //!
-//! The [`density`](crate::measure::ProbabilityMeasure::density) return type
-//! deliberately stays `Option<f64>` rather than `Option<NonNeg>`: densities
-//! against Lebesgue can exceed 1, and "non-negative" alone isn't strong
-//! enough to pay for the wrapper noise on every call site.
+//! [`ProbabilityMeasure::density`](crate::measure::ProbabilityMeasure::density)
+//! and [`Kernel::density`](crate::measure::Kernel::density) both return
+//! [`Option<NonNeg>`]: a Radon–Nikodym density is non-negative and finite
+//! wherever it's defined, and pushing that constraint into the type
+//! catches NaN / negative-density bugs at the implementation site rather
+//! than during a downstream comparison. Densities against Lebesgue can
+//! exceed 1 — [`Probability`] would be too tight — but [`NonNeg`] is the
+//! right codomain.
 
 /// ℝ_+ — non-negative finite reals.
 ///

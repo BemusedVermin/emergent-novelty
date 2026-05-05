@@ -108,6 +108,84 @@ jobs:
               with:
                 tool: cargo-hack
             - run: cargo hack check --rust-version --workspace --all-targets
+    flux-verify:
+        # Refinement-type verification via Flux (https://flux-rs.github.io).
+        #
+        # Flux is not yet on crates.io, so this job builds the verifier
+        # from source and caches it. Two things this job catches that
+        # the regular test matrix can't:
+        #   1. The `flux` cargo feature actually compiles at the Rust
+        #      version Flux pins (nightly-2025-11-25 at the time of
+        #      writing). Drift between Flux's nightly and ours would
+        #      otherwise go unnoticed until someone tried to verify.
+        #   2. Every `#[cfg_attr(feature = "flux", flux_rs::sig(...))]`
+        #      annotation in the crate is actually checked by Flux —
+        #      a malformed sig that builds (because the proc-macro is
+        #      a no-op without the verifier) would slip through.
+        #
+        # Linux-only because Z3 + Flux's source build is most reliable
+        # there. The Windows CI matrix exercises the `flux` feature in
+        # its no-op proc-macro form via `--all-features`, so a stable
+        # Windows build that uses `--features flux` is already covered.
+        name: Flux refinement-type verification
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        needs: [lint, license-check, security-check]
+        env:
+            # Bumping this updates the dep `rev` in `sim-core/Cargo.toml`
+            # and the cache key in lockstep. Keep them in sync.
+            FLUX_REV: 0dcdeaa512e7661b7079cdfe3b8885c4d6696f67
+            FLUX_TOOLCHAIN: nightly-2025-11-25
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install Z3 (Flux's SMT backend)
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y z3
+                  z3 --version
+
+            - name: Install Flux's pinned Rust toolchain
+              uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: ${{ env.FLUX_TOOLCHAIN }}
+                  components: rust-src, rustc-dev, llvm-tools, rustfmt, clippy
+
+            - name: Cache Flux installation
+              id: flux-cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/bin/flux
+                      ~/.cargo/bin/cargo-flux
+                      ~/.flux
+                  key: flux-${{ runner.os }}-${{ env.FLUX_REV }}-${{ env.FLUX_TOOLCHAIN }}
+
+            - name: Build & install Flux from source (cache miss only)
+              if: steps.flux-cache.outputs.cache-hit != 'true'
+              run: |
+                  set -euo pipefail
+                  git clone https://github.com/flux-rs/flux.git /tmp/flux-src
+                  cd /tmp/flux-src
+                  git checkout "${FLUX_REV}"
+                  cargo xtask install
+
+            - name: Cache cargo registry and build artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                  shared-key: flux-verify
+                  cache-on-failure: true
+
+            - name: Verify sim-core with cargo flux
+              working-directory: sim-core
+              run: cargo flux --features flux
+
+            - name: Confirm sim-core builds at Flux's pinned toolchain
+              # Independent check from the verification step above: even
+              # if Flux fails to find a refinement bug, we still want to
+              # know that our code compiles at the toolchain version
+              # Flux requires.
+              run: cargo build --workspace --features flux
     code-analysis:
         name: Code Analysis (rust-code-analysis)
         runs-on: ubuntu-latest

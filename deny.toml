@@ -50,6 +50,28 @@ confidence-threshold = 0.8
 [licenses.private]
 ignore = true
 
+# Flux's workspace member Cargo.tomls don't propagate the project's
+# top-level MIT LICENSE into individual crates' `license` fields, so
+# cargo-deny can't pick it up automatically. The flux repo's root
+# LICENSE file is MIT — confirmed at the pinned SHA in
+# `sim-core/Cargo.toml`. These clarifications tell cargo-deny to treat
+# the three crates we actually pull in (the proc-macro shim and its
+# implementation) as MIT-licensed.
+[[licenses.clarify]]
+crate = "flux-rs"
+expression = "MIT"
+license-files = []
+
+[[licenses.clarify]]
+crate = "flux-attrs"
+expression = "MIT"
+license-files = []
+
+[[licenses.clarify]]
+crate = "flux-attrs-impl"
+expression = "MIT"
+license-files = []
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
@@ -63,3 +85,9 @@ allow-wildcard-paths = true
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Flux is not yet published on crates.io — we depend on it as a git dep
+# (pinned by SHA in `sim-core/Cargo.toml`) only when the `flux` cargo
+# feature is on. The proc-macro shim (`flux-rs`, `flux-attrs`,
+# `flux-attrs-impl`) and the verifier driver itself all live under this
+# single GitHub URL.
+allow-git = ["https://github.com/flux-rs/flux"]
