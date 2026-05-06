@@ -136,14 +136,39 @@ jobs:
             # and the cache key in lockstep. Keep them in sync.
             FLUX_REV: 0dcdeaa512e7661b7079cdfe3b8885c4d6696f67
             FLUX_TOOLCHAIN: nightly-2025-11-25
+            # Flux dispatches to the `liquid-fixpoint` Haskell binary
+            # for SMT inference; it is NOT bundled with `cargo xtask
+            # install`. We download a precompiled nightly binary from
+            # the upstream releases. Z3 4.15.3 matches Flux's own CI
+            # pin — apt's z3 is older and has been observed to hang.
+            FIXPOINT_VERSION: nightly
+            Z3_VERSION: 4.15.3
         steps:
             - uses: actions/checkout@v6
 
-            - name: Install Z3 (Flux's SMT backend)
+            - name: Install Z3 ${{ env.Z3_VERSION }}
+              uses: cda-tum/setup-z3@v1.6.6
+              with:
+                  version: ${{ env.Z3_VERSION }}
+
+            - name: Install liquid-fixpoint
+              # Mirrors flux-rs/flux/.github/actions/install-fixpoint
+              # (inlined rather than invoked by `uses: flux-rs/flux/...`
+              # so the version is pinned by us, not by upstream master).
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  sudo apt-get update
-                  sudo apt-get install -y z3
-                  z3 --version
+                  set -euo pipefail
+                  NAME="fixpoint-x86_64-linux-gnu.tar.gz"
+                  URL="https://github.com/ucsd-progsys/liquid-fixpoint/releases/download/${FIXPOINT_VERSION}/${NAME}"
+                  echo "Downloading $URL"
+                  curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" --retry 3 -o "$NAME" "$URL"
+                  tar -xzf "$NAME"
+                  mkdir -p "$HOME/.local/bin"
+                  cp fixpoint "$HOME/.local/bin/fixpoint"
+                  rm -f "$NAME"
+                  echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+                  "$HOME/.local/bin/fixpoint" --version || true
 
             - name: Install Flux's pinned Rust toolchain
               uses: dtolnay/rust-toolchain@master
@@ -192,40 +217,40 @@ jobs:
         # nightly toolchain pin from `flux-verify` because the two
         # verifiers track upstream rustc on different cadences.
         #
-        # **LGPL handling.** `creusot-contracts` is LGPL-2.1-or-later
-        # and is intentionally never linked into the release artifact
-        # (the `release` job below builds with default features, which
-        # leaves the `creusot` feature OFF). This job builds with
-        # `--features creusot` only to verify; the resulting binary is
-        # discarded and never published. `deny.toml` carries narrow
-        # per-crate exceptions for `creusot-contracts` and
-        # `creusot-contracts-proc`; do NOT generalise those.
+        # **LGPL handling.** `creusot-std` and `creusot-std-proc` are
+        # LGPL-2.1-or-later and are intentionally never linked into
+        # the release artifact (the `release` job below builds with
+        # default features, which leaves the `creusot` feature OFF).
+        # This job builds with `--features creusot` only to verify;
+        # the resulting binary is discarded and never published.
+        # `deny.toml` carries narrow per-crate exceptions for
+        # `creusot-std` and `creusot-std-proc`; do NOT generalise
+        # those.
         name: Creusot deductive verification
         runs-on: ubuntu-latest
-        timeout-minutes: 45
+        timeout-minutes: 60
         needs: [lint, license-check, security-check]
         env:
-            # Bumping these updates the cache key, the toolchain, and
-            # the upstream Creusot pin in lockstep. Keep them
-            # consistent: a Creusot built from one commit but invoked
-            # against a different toolchain typically fails opaquely.
-            CREUSOT_REV: 7fcce05f73102e873edb44a56b146600959ecf2e
-            CREUSOT_TOOLCHAIN: nightly-2026-04-21
+            # Pinned to Creusot v0.11.0 (matches `creusot-std = "0.11.0"`
+            # in `sim-core/Cargo.toml`). cargo-creusot enforces a
+            # version match between the installed driver and
+            # creusot-std, so these two pins MUST move together.
+            CREUSOT_TAG: v0.11.0
+            CREUSOT_TOOLCHAIN: nightly-2026-02-27
         steps:
             - uses: actions/checkout@v6
 
-            - name: Install Why3 + Z3 (Creusot's verification backend)
+            - name: Install opam (OCaml package manager)
+              # Creusot's INSTALL script uses opam to install Why3,
+              # Why3find, Alt-Ergo, CVC4/CVC5, and Z3 in a private
+              # switch under ~/.local/share/creusot. Without opam
+              # available, the script aborts before it can do anything.
               run: |
                   sudo apt-get update
-                  # Why3 dispatches verification conditions to SMT
-                  # solvers (Z3, Alt-Ergo, CVC4) and falls back to
-                  # Coq/Rocq for proofs SMT cannot discharge alone.
-                  # We install the SMT backends here; Coq is
-                  # heavyweight and only needed for the Why3 fallbacks
-                  # we don't yet exercise — install on demand later.
-                  sudo apt-get install -y why3 z3
-                  why3 --version
-                  z3 --version
+                  sudo apt-get install -y opam pkg-config libgmp-dev
+                  # `--bare` skips creating a default switch — Creusot
+                  # creates its own switch with pinned versions.
+                  opam init --bare --yes --no-setup --disable-sandboxing
 
             - name: Install Creusot's pinned Rust toolchain
               uses: dtolnay/rust-toolchain@master
@@ -239,28 +264,20 @@ jobs:
               with:
                   path: |
                       ~/.cargo/bin/cargo-creusot
-                      ~/.cargo/bin/creusot-driver
-                      ~/.cargo/bin/creusot-rustc
-                      ~/.creusot
-                  key: creusot-${{ runner.os }}-${{ env.CREUSOT_REV }}-${{ env.CREUSOT_TOOLCHAIN }}
+                      ~/.local/share/creusot
+                  key: creusot-${{ runner.os }}-${{ env.CREUSOT_TAG }}-${{ env.CREUSOT_TOOLCHAIN }}
 
-            - name: Build & install Creusot from source (cache miss only)
+            - name: Install Creusot from source (cache miss only)
               if: steps.creusot-cache.outputs.cache-hit != 'true'
               run: |
                   set -euo pipefail
                   git clone https://github.com/creusot-rs/creusot.git /tmp/creusot-src
                   cd /tmp/creusot-src
-                  git checkout "${CREUSOT_REV}"
-                  cargo install --path cargo-creusot --locked
-                  cargo install --path creusot-rustc --locked
-
-            - name: Configure Why3 (one-shot per CI runner)
-              run: |
-                  # Creusot drives Why3 which needs a discovered solver
-                  # configuration. `why3 config detect` rewrites
-                  # ~/.why3.conf to enumerate the SMT backends apt
-                  # installed above.
-                  why3 config detect
+                  git checkout "${CREUSOT_TAG}"
+                  # Creusot's INSTALL script handles the opam-side
+                  # provers + Why3, then installs `cargo-creusot` and
+                  # `creusot-rustc` into ~/.cargo/bin and ~/.local/share/creusot.
+                  ./INSTALL
 
             - name: Cache cargo registry and build artifacts
               uses: Swatinem/rust-cache@v2
@@ -270,7 +287,11 @@ jobs:
 
             - name: Verify sim-core with cargo creusot
               working-directory: sim-core
-              run: cargo creusot --features creusot
+              # cargo-creusot accepts cargo flags after a `--`
+              # separator (its `cargo_flags: Vec<String>` is `last =
+              # true` in clap). Direct `--features` would be passed to
+              # creusot-rustc and rejected as an unknown driver arg.
+              run: cargo creusot -- --features creusot
 
             - name: Confirm sim-core builds at Creusot's pinned toolchain
               # Same intent as the analogous step in `flux-verify`:

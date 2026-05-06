@@ -39,7 +39,7 @@ flux = ["dep:flux-rs"]
 # To run the verifier: install Creusot
 # (<https://creusot-rs.github.io/creusot/guide/install.html>) and run
 # `cargo creusot --features creusot` from this crate's directory.
-creusot = ["dep:creusot-contracts"]
+creusot = ["dep:creusot-std"]
 
 [dependencies]
 rand_core = "0.10"
@@ -47,10 +47,13 @@ rand_core = "0.10"
 # Flux is not yet on crates.io; pinning by rev keeps the build
 # reproducible and avoids surprise breakage from upstream API churn.
 flux-rs = { git = "https://github.com/flux-rs/flux.git", rev = "0dcdeaa512e7661b7079cdfe3b8885c4d6696f67", optional = true }
-# Latest crates.io release at time of writing (Dec 2025). LGPL-2.1.
-# Pulled in only when the `creusot` feature is on; never linked into
-# a default or release build. See feature comment above.
-creusot-contracts = { version = "0.8.0", optional = true }
+# `creusot-std` is the user-facing Creusot library — bundles the
+# `#[requires]` / `#[ensures]` macros and Creusot's `std` specs.
+# `cargo-creusot` hardcodes a feature reference to this crate, so it
+# (not `creusot-contracts`) is what verified projects depend on.
+# LGPL-2.1-or-later. Pulled in only when the `creusot` feature is on;
+# never linked into a default or release build.
+creusot-std = { version = "0.11.0", optional = true }
 
 # Consulted by the `cargo flux` driver only; ignored by stock cargo.
 # Setting `enabled = true` makes `cargo flux` verify this crate; without

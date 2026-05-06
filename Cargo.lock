@@ -9,20 +9,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
-name = "creusot-contracts"
-version = "0.8.0"
+name = "creusot-std"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11db9331abd9b2aee1c42e5739a669f9cce791e1704f24c9decc7f563fb3f4b4"
+checksum = "0eeaaebdee9aa688b8ad786e721deaee4e2d15da3a043acf6fcb7efb4a4e226c"
 dependencies = [
- "creusot-contracts-proc",
+ "creusot-std-proc",
  "num-rational",
 ]
 
 [[package]]
-name = "creusot-contracts-proc"
-version = "0.8.0"
+name = "creusot-std-proc"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d547dbd8c3f26857d966cd487462afae75c890e46072a255268411191e107a9b"
+checksum = "bee44c269dbf2a9c3afc96f5983ec3b0cd7e7105218e4dadf62eb821bd20ca46"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -122,7 +122,7 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 name = "sim-core"
 version = "0.1.0"
 dependencies = [
- "creusot-contracts",
+ "creusot-std",
  "flux-rs",
  "rand_core",
 ]

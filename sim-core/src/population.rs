@@ -60,7 +60,7 @@ impl<S: MeasurableSpace> Population<S> {
     /// running the helper).
     #[cfg_attr(
         feature = "creusot",
-        creusot_contracts::macros::ensures(result@ == self.members@.len())
+        creusot_std::macros::ensures(result@ == self.members@.len())
     )]
     pub fn len(&self) -> usize {
         self.members.len()
@@ -68,7 +68,7 @@ impl<S: MeasurableSpace> Population<S> {
 
     #[cfg_attr(
         feature = "creusot",
-        creusot_contracts::macros::ensures(result == (self.members@.len() == 0))
+        creusot_std::macros::ensures(result == (self.members@.len() == 0))
     )]
     pub fn is_empty(&self) -> bool {
         self.members.is_empty()
