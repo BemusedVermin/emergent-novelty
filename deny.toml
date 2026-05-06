@@ -72,6 +72,23 @@ crate = "flux-attrs-impl"
 expression = "MIT"
 license-files = []
 
+# Creusot-contracts is LGPL-2.1-or-later and is intentionally NOT in
+# the global allow-list above — we don't want LGPL leaking into the
+# workspace unaudited. These two narrow exceptions permit the single
+# crate we explicitly opt in to (and its proc-macro impl crate, which
+# carries the same license) as a verification-only dependency, gated
+# behind the `creusot` cargo feature in `sim-core/Cargo.toml`. The
+# release CI job builds with default features (creusot OFF) so no
+# LGPL code is ever distributed. Do not generalise these exceptions
+# to other LGPL crates — review them on a case-by-case basis.
+[[licenses.exceptions]]
+crate = "creusot-contracts"
+allow = ["LGPL-2.1-or-later"]
+
+[[licenses.exceptions]]
+crate = "creusot-contracts-proc"
+allow = ["LGPL-2.1-or-later"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

@@ -10,15 +10,36 @@ publish.workspace = true
 
 [features]
 default = []
-# Enable refinement-type checking via Flux. Pulls in `flux-rs` (proc-macro
-# crate that exposes the `#[flux_rs::sig(...)]` attribute) and surfaces
-# every `cfg_attr(feature = "flux", ...)` annotation across the crate.
+# Refinement-type checking via Flux <https://flux-rs.github.io/flux/>.
+# Pulls in `flux-rs` (proc-macro crate that exposes
+# `#[flux_rs::sig(...)]`) and surfaces every
+# `cfg_attr(feature = "flux", ...)` annotation across the crate.
 #
-# A clean `cargo build` does NOT verify anything — it just compiles the
-# annotations as no-op proc-macro expansions. To actually run the
+# A clean `cargo build` does NOT verify anything — it just compiles
+# the annotations as no-op proc-macro expansions. To actually run the
 # verifier, install Flux per <https://flux-rs.github.io/flux/guide/install.html>
 # and run `cargo flux --features flux` from this crate's directory.
 flux = ["dep:flux-rs"]
+
+# Deductive verification via Creusot <https://creusot-rs.github.io/>.
+# Pulls in `creusot-contracts`, which exposes `#[requires(...)]`,
+# `#[ensures(...)]`, and `#[invariant(...)]`. Like the Flux feature,
+# this is verification-only: the proc macros emit no-ops on stock
+# rustc, and a clean `cargo build` does NOT verify anything.
+#
+# **Licensing.** `creusot-contracts` is LGPL-2.1, which conflicts with
+# this crate's proprietary licensing if it ever shipped in a release
+# binary. This feature is therefore strictly off-by-default and is
+# never enabled by the release-artifact CI job — Creusot is a
+# development-time verifier only and is never distributed.
+# `deny.toml` carries a narrow per-crate exception for
+# `creusot-contracts`; do not extend that exception to other LGPL
+# crates.
+#
+# To run the verifier: install Creusot
+# (<https://creusot-rs.github.io/creusot/guide/install.html>) and run
+# `cargo creusot --features creusot` from this crate's directory.
+creusot = ["dep:creusot-contracts"]
 
 [dependencies]
 rand_core = "0.10"
@@ -26,6 +47,10 @@ rand_core = "0.10"
 # Flux is not yet on crates.io; pinning by rev keeps the build
 # reproducible and avoids surprise breakage from upstream API churn.
 flux-rs = { git = "https://github.com/flux-rs/flux.git", rev = "0dcdeaa512e7661b7079cdfe3b8885c4d6696f67", optional = true }
+# Latest crates.io release at time of writing (Dec 2025). LGPL-2.1.
+# Pulled in only when the `creusot` feature is on; never linked into
+# a default or release build. See feature comment above.
+creusot-contracts = { version = "0.8.0", optional = true }
 
 # Consulted by the `cargo flux` driver only; ignored by stock cargo.
 # Setting `enabled = true` makes `cargo flux` verify this crate; without

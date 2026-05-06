@@ -50,10 +50,26 @@ impl<S: MeasurableSpace> Population<S> {
     }
 
     /// N — the current cardinality of the population.
+    ///
+    /// Refinement (Creusot): the returned `usize` equals the model
+    /// length of the underlying member vector — `result@ ==
+    /// self.members@.len()`. Trivial in implementation, but the
+    /// annotation gives downstream proofs a logical fact to chain on
+    /// (e.g., `step_does_not_grow_population` becomes a `len_after <=
+    /// len_before` postcondition that Creusot can rewrite without
+    /// running the helper).
+    #[cfg_attr(
+        feature = "creusot",
+        creusot_contracts::macros::ensures(result@ == self.members@.len())
+    )]
     pub fn len(&self) -> usize {
         self.members.len()
     }
 
+    #[cfg_attr(
+        feature = "creusot",
+        creusot_contracts::macros::ensures(result == (self.members@.len() == 0))
+    )]
     pub fn is_empty(&self) -> bool {
         self.members.is_empty()
     }

@@ -186,6 +186,97 @@ jobs:
               # know that our code compiles at the toolchain version
               # Flux requires.
               run: cargo build --workspace --features flux
+    creusot-verify:
+        # Deductive verification via Creusot
+        # (https://creusot-rs.github.io/creusot/). Runs on a separate
+        # nightly toolchain pin from `flux-verify` because the two
+        # verifiers track upstream rustc on different cadences.
+        #
+        # **LGPL handling.** `creusot-contracts` is LGPL-2.1-or-later
+        # and is intentionally never linked into the release artifact
+        # (the `release` job below builds with default features, which
+        # leaves the `creusot` feature OFF). This job builds with
+        # `--features creusot` only to verify; the resulting binary is
+        # discarded and never published. `deny.toml` carries narrow
+        # per-crate exceptions for `creusot-contracts` and
+        # `creusot-contracts-proc`; do NOT generalise those.
+        name: Creusot deductive verification
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        needs: [lint, license-check, security-check]
+        env:
+            # Bumping these updates the cache key, the toolchain, and
+            # the upstream Creusot pin in lockstep. Keep them
+            # consistent: a Creusot built from one commit but invoked
+            # against a different toolchain typically fails opaquely.
+            CREUSOT_REV: 7fcce05f73102e873edb44a56b146600959ecf2e
+            CREUSOT_TOOLCHAIN: nightly-2026-04-21
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Install Why3 + Z3 (Creusot's verification backend)
+              run: |
+                  sudo apt-get update
+                  # Why3 dispatches verification conditions to SMT
+                  # solvers (Z3, Alt-Ergo, CVC4) and falls back to
+                  # Coq/Rocq for proofs SMT cannot discharge alone.
+                  # We install the SMT backends here; Coq is
+                  # heavyweight and only needed for the Why3 fallbacks
+                  # we don't yet exercise — install on demand later.
+                  sudo apt-get install -y why3 z3
+                  why3 --version
+                  z3 --version
+
+            - name: Install Creusot's pinned Rust toolchain
+              uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: ${{ env.CREUSOT_TOOLCHAIN }}
+                  components: rust-src, rustc-dev, llvm-tools, rustfmt, clippy
+
+            - name: Cache Creusot installation
+              id: creusot-cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/bin/cargo-creusot
+                      ~/.cargo/bin/creusot-driver
+                      ~/.cargo/bin/creusot-rustc
+                      ~/.creusot
+                  key: creusot-${{ runner.os }}-${{ env.CREUSOT_REV }}-${{ env.CREUSOT_TOOLCHAIN }}
+
+            - name: Build & install Creusot from source (cache miss only)
+              if: steps.creusot-cache.outputs.cache-hit != 'true'
+              run: |
+                  set -euo pipefail
+                  git clone https://github.com/creusot-rs/creusot.git /tmp/creusot-src
+                  cd /tmp/creusot-src
+                  git checkout "${CREUSOT_REV}"
+                  cargo install --path cargo-creusot --locked
+                  cargo install --path creusot-rustc --locked
+
+            - name: Configure Why3 (one-shot per CI runner)
+              run: |
+                  # Creusot drives Why3 which needs a discovered solver
+                  # configuration. `why3 config detect` rewrites
+                  # ~/.why3.conf to enumerate the SMT backends apt
+                  # installed above.
+                  why3 config detect
+
+            - name: Cache cargo registry and build artifacts
+              uses: Swatinem/rust-cache@v2
+              with:
+                  shared-key: creusot-verify
+                  cache-on-failure: true
+
+            - name: Verify sim-core with cargo creusot
+              working-directory: sim-core
+              run: cargo creusot --features creusot
+
+            - name: Confirm sim-core builds at Creusot's pinned toolchain
+              # Same intent as the analogous step in `flux-verify`:
+              # detect drift between Creusot's toolchain pin and our
+              # code separate from any verification finding.
+              run: cargo build --workspace --features creusot
     code-analysis:
         name: Code Analysis (rust-code-analysis)
         runs-on: ubuntu-latest

@@ -3,6 +3,33 @@
 version = 4
 
 [[package]]
+name = "autocfg"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
+
+[[package]]
+name = "creusot-contracts"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11db9331abd9b2aee1c42e5739a669f9cce791e1704f24c9decc7f563fb3f4b4"
+dependencies = [
+ "creusot-contracts-proc",
+ "num-rational",
+]
+
+[[package]]
+name = "creusot-contracts-proc"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d547dbd8c3f26857d966cd487462afae75c890e46072a255268411191e107a9b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "flux-attrs"
 version = "0.1.0"
 source = "git+https://github.com/flux-rs/flux.git?rev=0dcdeaa512e7661b7079cdfe3b8885c4d6696f67#0dcdeaa512e7661b7079cdfe3b8885c4d6696f67"
@@ -26,6 +53,45 @@ version = "0.1.0"
 source = "git+https://github.com/flux-rs/flux.git?rev=0dcdeaa512e7661b7079cdfe3b8885c4d6696f67#0dcdeaa512e7661b7079cdfe3b8885c4d6696f67"
 dependencies = [
  "flux-attrs",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "num-rational"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f83d14da390562dca69fc84082e73e548e1ad308d24accdedd2720017cb37824"
+dependencies = [
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]
@@ -56,6 +122,7 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 name = "sim-core"
 version = "0.1.0"
 dependencies = [
+ "creusot-contracts",
  "flux-rs",
  "rand_core",
 ]
