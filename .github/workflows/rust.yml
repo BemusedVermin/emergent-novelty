@@ -178,7 +178,7 @@ jobs:
 
             - name: Cache Flux installation
               id: flux-cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: |
                       ~/.cargo/bin/flux
@@ -260,7 +260,7 @@ jobs:
 
             - name: Cache Creusot installation
               id: creusot-cache
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: |
                       ~/.cargo/bin/cargo-creusot
